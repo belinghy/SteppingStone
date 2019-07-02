@@ -1,0 +1,7 @@
+__pycache__/
+.ipynb_checkpoints/
+logs/
+dump/
+
+# User-specific stuff
+.idea/
