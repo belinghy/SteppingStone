@@ -7,6 +7,8 @@ import numpy as np
 
 from environments.bullet_utils import BodyPart, Joint
 
+DEG2RAD = np.pi / 180
+
 
 class Cassie:
     model_path = os.path.join(
@@ -384,14 +386,10 @@ class Walker3D(WalkerBase):
         # Need to call this first to parse body
         super(Walker3D, self).load_robot_model(model_path, flags, root_link_name)
 
-        # Set pose to a good initial pose
+        # T-pose
         self.base_joint_angles = np.zeros(self.action_dim)
-        self.base_joint_angles[[5, 6]] = -np.pi / 8  # Right leg
-        self.base_joint_angles[10] = np.pi / 10  # Left leg back
-        self.base_joint_angles[[13, 17]] = np.pi / 3  # Shoulder x
-        self.base_joint_angles[[14]] = -np.pi / 6  # Right shoulder back
-        self.base_joint_angles[[18]] = np.pi / 6  # Left shoulder forward
-        self.base_joint_angles[[16, 20]] = np.pi / 3  # Elbow
+        self.base_position = (0, 0, 1.32)
+        self.base_orientation = (0, 0, 0, 1)
 
         # Need this to set pose and mirroring
         # hip_[x,z,y], knee, ankle, shoulder_[x,z,y], elbow
@@ -403,7 +401,38 @@ class Walker3D(WalkerBase):
         )
         self._negation_joint_indices = np.array([0, 2], dtype=np.int64)  # abdomen_[x,z]
 
-    def reset(self, random_pose=True, z0=None):
+    def set_base_pose(self, pose=None):
+        self.base_joint_angles[:] = 0  # reset
+
+        if pose == "running_start":
+            self.base_joint_angles[[5, 6]] = -np.pi / 8  # Right leg
+            self.base_joint_angles[10] = np.pi / 10  # Left leg back
+            self.base_joint_angles[[13, 17]] = np.pi / 3  # Shoulder x
+            self.base_joint_angles[[14]] = -np.pi / 6  # Right shoulder back
+            self.base_joint_angles[[18]] = np.pi / 6  # Left shoulder forward
+            self.base_joint_angles[[16, 20]] = np.pi / 3  # Elbow
+        elif pose == "sit":
+            self.base_joint_angles[[5, 10]] = -np.pi / 2  # hip
+            self.base_joint_angles[[6, 11]] = -np.pi / 2  # knee
+        elif pose == "squat":
+            angle = -20 * DEG2RAD
+            self.base_joint_angles[[5, 10]] = -np.pi / 2  # hip
+            self.base_joint_angles[[6, 11]] = -np.pi / 2  # knee
+            self.base_joint_angles[[7, 12]] = angle  # ankles
+            self.base_orientation = self._p.getQuaternionFromEuler([0, -angle, 0])
+        elif pose == "crawl":
+            self.base_joint_angles[[13, 17]] = np.pi / 2  # shoulder x
+            self.base_joint_angles[[14, 18]] = np.pi / 2  # shoulder z
+            self.base_joint_angles[[16, 20]] = np.pi / 3  # Elbow
+            self.base_joint_angles[[5, 10]] = -np.pi / 2  # hip
+            self.base_joint_angles[[6, 11]] = -120 * DEG2RAD  # knee
+            self.base_joint_angles[[7, 12]] = -20 * DEG2RAD  # ankles
+            self.base_orientation = self._p.getQuaternionFromEuler([0, 90 * DEG2RAD, 0])
+
+    def reset(self, random_pose=True, pos=None, quat=None):
+
+        joint_angles = self.base_joint_angles
+
         if random_pose:
             # Flip left right
             if self.np_random.rand() < 0.5:
@@ -416,15 +445,20 @@ class Walker3D(WalkerBase):
                 self.base_joint_angles[rl] = self.base_joint_angles[lr]
             # Add small deviations
             ds = self.np_random.uniform(low=-0.1, high=0.1, size=self.action_dim)
-            ps = self.base_joint_angles + ds
-            ps = self.to_radians(np.clip(self.to_normalized(ps), -0.95, 0.95))
-            for i, j in enumerate(self.ordered_joints):
-                j.reset_current_position(ps[i], 0)
-
-        if z0 is not None:
-            self._p.resetBasePositionAndOrientation(
-                self.object_id[0], posObj=(0, 0, z0), ornObj=(0, 0, 0, 1)
+            joint_angles += ds
+            joint_angles = self.to_radians(
+                np.clip(self.to_normalized(joint_angles), -0.95, 0.95)
             )
+
+        for j, a in zip(self.ordered_joints, joint_angles):
+            j.reset_current_position(a, 0)
+
+        pos = self.base_position if pos is None else pos
+        quat = self.base_orientation if quat is None else quat
+
+        self._p.resetBasePositionAndOrientation(
+            self.object_id[0], posObj=pos, ornObj=quat
+        )
 
         return super(Walker3D, self).reset()
 

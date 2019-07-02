@@ -22,6 +22,7 @@ class Walker3DCustomEnv(EnvBase):
 
     def __init__(self, render=False):
         super(Walker3DCustomEnv, self).__init__(Walker3D, render)
+        self.robot.set_base_pose(pose="running_start")
 
         self.electricity_cost = 4.5
         self.stall_torque_cost = 0.225
@@ -231,7 +232,8 @@ class Walker3DTerrainEnv(EnvBase):
         self.step_height = 0.2
         self.rendered_step_count = 3
 
-        super(Walker3DTerrainEnv, self).__init__(Walker3D, render)
+        super().__init__(Walker3D, render)
+        self.robot.set_base_pose(pose="running_start")
 
         self.electricity_cost = 4.5
         self.stall_torque_cost = 0.225
@@ -348,7 +350,7 @@ class Walker3DTerrainEnv(EnvBase):
 
         self._p.restoreState(self.state_id)
 
-        self.robot_state = self.robot.reset(random_pose=True, z0=None)
+        self.robot_state = self.robot.reset(random_pose=True)
         self.calc_feet_state()
 
         # Randomize platforms
