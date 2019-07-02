@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from environments.env_base import EnvBase
-from environments.bullet_utils import VSphere, Pillar, Plank
+from environments.bullet_objects import VSphere, Pillar, Plank
 from environments.robots import Walker3D
 
 Colors = {
