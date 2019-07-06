@@ -148,7 +148,7 @@ class BodyPart:
 
     def contact_list(self):
         return self._p.getContactPoints(
-            self.bodies[self.bodyIndex], -1, self.bodyPartIndex, -1
+            bodyA=self.bodies[self.bodyIndex], linkIndexA=self.bodyPartIndex
         )
 
 

@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from environments.env_base import EnvBase
-from environments.bullet_objects import VSphere, Pillar, Plank
+from environments.bullet_objects import VSphere, Pillar, Plank, LargePlank
 from environments.robots import Walker3D
 
 Colors = {
@@ -230,7 +230,7 @@ class Walker3DTerrainEnv(EnvBase):
         # because they are used in self.create_terrain()
         self.step_radius = 0.25
         self.step_height = 0.2
-        self.rendered_step_count = 3
+        self.rendered_step_count = 4
 
         super().__init__(Walker3D, render)
         self.robot.set_base_pose(pose="running_start")
@@ -274,26 +274,28 @@ class Walker3DTerrainEnv(EnvBase):
         dphi = self.np_random.uniform(*y_range, size=n_steps)
         dtheta = self.np_random.uniform(*p_range, size=n_steps)
 
+        # make first step slightly further to accommodate different starting poses
+        dr[0] = 0.7
+        dphi[0] = 0.0
+        dtheta[0] = np.pi / 2
+
         x_tilt = self.np_random.uniform(*t_range, size=n_steps)
         y_tilt = self.np_random.uniform(*t_range, size=n_steps)
 
         dphi = np.cumsum(dphi)
 
-        # Set initial two steps manually
-        # dphi[0:2] = dr[0:2] = tilt[0:2] = 0
-
         x_ = dr * np.sin(dtheta) * np.cos(dphi)
         y_ = dr * np.sin(dtheta) * np.sin(dphi)
         z_ = dr * np.cos(dtheta)
+
+        # Prevent steps from overlapping
+        np.clip(x_, a_min=self.step_radius * 2.5, a_max=max_gap, out=x_)
+
         x = np.cumsum(x_)
         y = np.cumsum(y_)
         z = np.cumsum(z_)
 
-        # x[0], y[0] = self.robot.feet_xyz[0, 0:2]
-        # x[1], y[1] = self.robot.feet_xyz[1, 0:2]
-        # z[0] = z[1] = self.robot.feet_xyz[:, 2].min() - 0.15
-
-        min_z = self.step_radius * np.sin(self.tilt_limit * DEG2RAD)
+        min_z = self.step_radius * np.sin(self.tilt_limit * DEG2RAD) + 0.01
         np.clip(z, a_min=min_z, a_max=None, out=z)
 
         return np.stack((x, y, z, dphi, x_tilt, y_tilt), axis=1)
@@ -305,11 +307,12 @@ class Walker3DTerrainEnv(EnvBase):
         cover_ids = set()
 
         for index in range(self.rendered_step_count):
-            # p = Pillar(self._p, self.step_radius, self.step_height)
-            p = Plank(self._p, (self.step_radius, 6, self.step_height))
+            # p = Pillar(self._p, self.step_radius)
+            # p = Plank(self._p, self.step_radius)
+            p = LargePlank(self._p, self.step_radius)
             self.steps.append(p)
-            step_ids = step_ids | {(p.body_id, -1)}
-            cover_ids = cover_ids | {(p.cover_id, -1)}
+            step_ids = step_ids | {(p.id, p.base_id)}
+            cover_ids = cover_ids | {(p.id, p.cover_id)}
 
         # Need set for detecting contact
         self.all_contact_object_ids = set(step_ids) | set(cover_ids) | self.ground_ids
@@ -466,7 +469,8 @@ class Walker3DTerrainEnv(EnvBase):
     def calc_feet_state(self):
         # Calculate contact separately for step
         target_cover_index = self.next_step_index % self.rendered_step_count
-        target_cover_id = {(self.steps[target_cover_index].cover_id, -1)}
+        next_step = self.steps[target_cover_index]
+        target_cover_id = {(next_step.id, next_step.cover_id)}
 
         self.foot_dist_to_target = np.array([0.0, 0.0])
 
@@ -551,7 +555,7 @@ class Walker3DTerrainEnv(EnvBase):
                 (targets, np.repeat(targets[[-1]], k - len(targets), axis=0))
             )
 
-        self.walk_target = targets[[k - 1], 0:3].mean(axis=0)
+        self.walk_target = targets[[1], 0:3].mean(axis=0)
 
         deltas = targets[:, 0:3] - self.robot.body_xyz
         target_thetas = np.arctan2(deltas[:, 1], deltas[:, 0])

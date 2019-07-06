@@ -399,7 +399,11 @@ class Walker3D(WalkerBase):
         self._left_joint_indices = np.array(
             [8, 9, 10, 11, 12, 17, 18, 19, 20], dtype=np.int64
         )
-        self._negation_joint_indices = np.array([0, 2], dtype=np.int64)  # abdomen_[x,z]
+        # abdomen_[x,z]
+        self._negation_joint_indices = np.array([0, 2], dtype=np.int64)
+
+        self._rl = np.concatenate((self._right_joint_indices, self._left_joint_indices))
+        self._lr = np.concatenate((self._left_joint_indices, self._right_joint_indices))
 
     def set_base_pose(self, pose=None):
         self.base_joint_angles[:] = 0  # reset
@@ -431,27 +435,19 @@ class Walker3D(WalkerBase):
 
     def reset(self, random_pose=True, pos=None, quat=None):
 
-        joint_angles = self.base_joint_angles
-
         if random_pose:
-            # Flip left right
+            # Mirror initial pose
             if self.np_random.rand() < 0.5:
-                rl = np.concatenate(
-                    (self._right_joint_indices, self._left_joint_indices)
-                )
-                lr = np.concatenate(
-                    (self._left_joint_indices, self._right_joint_indices)
-                )
-                self.base_joint_angles[rl] = self.base_joint_angles[lr]
+                self.base_joint_angles[self._rl] = self.base_joint_angles[self._lr]
+                self.base_joint_angles[self._negation_joint_indices] *= -1
+
             # Add small deviations
             ds = self.np_random.uniform(low=-0.1, high=0.1, size=self.action_dim)
-            joint_angles += ds
-            joint_angles = self.to_radians(
-                np.clip(self.to_normalized(joint_angles), -0.95, 0.95)
-            )
+            ps = self.to_normalized(self.base_joint_angles + ds)
+            ps = self.to_radians(np.clip(ps, -0.95, 0.95))
 
-        for j, a in zip(self.ordered_joints, joint_angles):
-            j.reset_current_position(a, 0)
+            for i, j in enumerate(self.ordered_joints):
+                j.reset_current_position(ps[i], 0)
 
         pos = self.base_position if pos is None else pos
         quat = self.base_orientation if quat is None else quat
