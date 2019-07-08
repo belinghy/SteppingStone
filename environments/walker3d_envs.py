@@ -259,7 +259,7 @@ class Walker3DTerrainEnv(EnvBase):
         self,
         n_steps=50,
         min_gap=0.65,
-        max_gap=0.75,
+        max_gap=0.85,
         yaw_limit=30,
         pitch_limit=25,
         tilt_limit=10,
@@ -275,7 +275,7 @@ class Walker3DTerrainEnv(EnvBase):
         dtheta = self.np_random.uniform(*p_range, size=n_steps)
 
         # make first step slightly further to accommodate different starting poses
-        dr[0] = 0.7
+        dr[0] = 0.8
         dphi[0] = 0.0
         dtheta[0] = np.pi / 2
 
