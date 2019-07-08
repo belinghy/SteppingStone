@@ -25,7 +25,7 @@ from common.misc_utils import linear_decay, exponential_decay, set_optimizer_lr
 
 
 def main():
-    env_name = "Walker3DTerrainEnv-v0"
+    env_name = "Walker3DStepperEnv-v0"
     dummy_env = make_env(env_name, render=False)
 
     # Auxiliary configurations

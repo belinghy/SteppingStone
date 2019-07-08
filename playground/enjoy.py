@@ -15,7 +15,7 @@ from common.render_utils import StatsVisualizer
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--env", type=str, default="Walker3DTerrainEnv-v0", help="Environment ID"
+        "--env", type=str, default="Walker3DStepperEnv-v0", help="Environment ID"
     )
     parser.add_argument(
         "--net", type=str, default=None, help="Path to trained network file"

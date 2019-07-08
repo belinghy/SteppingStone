@@ -28,7 +28,7 @@ register(
 )
 
 register(
-    id="Walker3DTerrainEnv-v0",
-    entry_point="environments.walker3d_envs:Walker3DTerrainEnv",
+    id="Walker3DStepperEnv-v0",
+    entry_point="environments.walker3d_envs:Walker3DStepperEnv",
     max_episode_steps=1000,
 )

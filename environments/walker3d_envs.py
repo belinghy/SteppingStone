@@ -218,7 +218,7 @@ class Walker3DCustomEnv(EnvBase):
         )
 
 
-class Walker3DTerrainEnv(EnvBase):
+class Walker3DStepperEnv(EnvBase):
 
     control_step = 1 / 60
     llc_frame_skip = 1
