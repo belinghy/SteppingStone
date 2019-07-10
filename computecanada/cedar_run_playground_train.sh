@@ -6,5 +6,5 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem-per-cpu=400M
 cd /home/belinghy/projects/def-vandepan/belinghy/SteppingStone/playground
-. /home/belinghy/projects/def-vandepan/belinghy/research-env/bin/activate
+. /home/belinghy/projects/def-vandepan/belinghy/venv/bin/activate
 python train.py

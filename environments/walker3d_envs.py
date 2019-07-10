@@ -233,7 +233,7 @@ class Walker3DStepperEnv(EnvBase):
         # because they are used in self.create_terrain()
         self.step_radius = 0.25
         self.rendered_step_count = 4
-        self.stop_frames = 30
+        self.stop_frames = 60
 
         super().__init__(Walker3D, render)
         self.robot.set_base_pose(pose="running_start")
