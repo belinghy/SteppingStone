@@ -1,3 +1,9 @@
+import os
+
+current_dir = os.path.dirname(os.path.realpath(__file__))
+parent_dir = os.path.dirname(current_dir)
+os.sys.path.append(parent_dir)
+
 import gym
 import numpy as np
 
@@ -7,7 +13,7 @@ import environments
 DEG2RAD = np.pi / 180
 
 
-env_name = "CassieEnv-v0"
+env_name = "Walker3DPlannerEnv-v0"
 env = gym.make(env_name, render=True)
 action_dim = env.action_space.shape[0]
 offset = 6

@@ -1,5 +1,8 @@
+import os
+
 import gym
 import numpy as np
+import torch
 
 from environments.env_base import EnvBase
 from environments.bullet_objects import VSphere, Pillar, Plank, LargePlank
@@ -229,8 +232,8 @@ class Walker3DStepperEnv(EnvBase):
         # Need these before calling constructor
         # because they are used in self.create_terrain()
         self.step_radius = 0.25
-        self.step_height = 0.2
         self.rendered_step_count = 4
+        self.stop_frames = 30
 
         super().__init__(Walker3D, render)
         self.robot.set_base_pose(pose="running_start")
@@ -244,14 +247,16 @@ class Walker3DStepperEnv(EnvBase):
         self.next_step_index = 0
 
         # Terrain info
-        self.pitch_limit = 20
+        self.pitch_limit = 50
         self.yaw_limit = 0
         self.tilt_limit = 0
         # x, y, z, phi, x_tilt, y_tilt
         self.terrain_info = np.zeros((self.n_steps, 6))
 
         # (2 targets) * (x, y, z, x_tilt, y_tilt)
-        high = np.inf * np.ones(self.robot.observation_space.shape[0] + 2 * 5)
+        high = np.inf * np.ones(
+            self.robot.observation_space.shape[0] + self.lookahead * 5
+        )
         self.observation_space = gym.spaces.Box(-high, high, dtype=np.float32)
         self.action_space = self.robot.action_space
 
@@ -289,7 +294,7 @@ class Walker3DStepperEnv(EnvBase):
         z_ = dr * np.cos(dtheta)
 
         # Prevent steps from overlapping
-        np.clip(x_, a_min=self.step_radius * 2.5, a_max=max_gap, out=x_)
+        np.clip(x_, a_min=self.step_radius * 3, a_max=max_gap, out=x_)
 
         x = np.cumsum(x_)
         y = np.cumsum(y_)
@@ -308,8 +313,8 @@ class Walker3DStepperEnv(EnvBase):
 
         for index in range(self.rendered_step_count):
             # p = Pillar(self._p, self.step_radius)
-            # p = Plank(self._p, self.step_radius)
-            p = LargePlank(self._p, self.step_radius)
+            p = Plank(self._p, self.step_radius)
+            # p = LargePlank(self._p, self.step_radius)
             self.steps.append(p)
             step_ids = step_ids | {(p.id, p.base_id)}
             cover_ids = cover_ids | {(p.id, p.cover_id)}
@@ -349,7 +354,6 @@ class Walker3DStepperEnv(EnvBase):
     def reset(self):
         self.done = False
         self.target_reached_count = 0
-        self.stop_frames = 30
 
         self._p.restoreState(self.state_id)
 
@@ -480,8 +484,9 @@ class Walker3DStepperEnv(EnvBase):
             self.robot.feet_xyz[i] = f.pose().xyz()
             contact_ids = set((x[2], x[4]) for x in f.contact_list())
 
-            in_contact = self.all_contact_object_ids & contact_ids
-            self.robot.feet_contact[i] = 1.0 if in_contact else 0.0
+            # in_contact = self.all_contact_object_ids & contact_ids
+            # if contact_ids is not empty, then foot is in contact
+            self.robot.feet_contact[i] = 1.0 if contact_ids else 0.0
 
             delta = self.robot.feet_xyz[i] - p_xyz
             distance = (delta[0] ** 2 + delta[1] ** 2) ** (1 / 2)
@@ -582,30 +587,42 @@ class Walker3DStepperEnv(EnvBase):
     def get_mirror_indices(self):
 
         action_dim = self.robot.action_space.shape[0]
-        # _ + 6 accounting for global
-        right = self.robot._right_joint_indices + 6
-        # _ + action_dim to get velocities, 48 is right foot contact
-        right = np.concatenate((right, right + action_dim, [48]))
-        # Do the same for left, except using 49 for left foot contact
-        left = self.robot._left_joint_indices + 6
-        left = np.concatenate((left, left + action_dim, [49]))
 
-        # Used for creating mirrored observations
-        # 2:  vy
-        # 4:  roll
-        # 6:  abdomen_z pos
-        # 8:  abdomen_x pos
-        # 27: abdomen_z vel
-        # 29: abdomen_x vel
-        # 50: sin(-a) = -sin(a) of next step
-        # 53: x_tilt of next step
-        # 55: sin(-a) = -sin(a) of next + 1 step
-        # 58: x_tilt of next + 1 step
-        negation_obs_indices = np.array(
-            [2, 4, 6, 8, 27, 29, 50, 53, 55, 58], dtype=np.int64
+        right_obs_indices = np.concatenate(
+            (
+                # joint angle indices + 6 accounting for global
+                6 + self.robot._right_joint_indices,
+                # joint velocity indices
+                6 + self.robot._right_joint_indices + action_dim,
+                # right foot contact
+                [6 + 2 * action_dim],
+            )
         )
-        right_obs_indices = right
-        left_obs_indices = left
+
+        # Do the same for left, except using +1 for left foot contact
+        left_obs_indices = np.concatenate(
+            (
+                6 + self.robot._left_joint_indices,
+                6 + self.robot._left_joint_indices + action_dim,
+                [6 + 2 * action_dim + 1],
+            )
+        )
+
+        negation_obs_indices = np.array(
+            [
+                2,  # vy
+                4,  # roll
+                6,  # abdomen_z pos
+                8,  # abdomen_x pos
+                27,  # abdomen_z vel
+                29,  # abdomen_x vel
+                50,  # sin(-a) = -sin(a) of next step
+                53,  # x_tilt of next step
+                55,  # sin(-a) = -sin(a) of next + 1 step
+                58,  # x_tilt of next + 1 step
+            ],
+            dtype=np.int64,
+        )
 
         # Used for creating mirrored actions
         negation_action_indices = self.robot._negation_joint_indices
@@ -620,3 +637,114 @@ class Walker3DStepperEnv(EnvBase):
             right_action_indices,
             left_action_indices,
         )
+
+
+class Walker3DPlannerEnv(Walker3DStepperEnv):
+    control_step = 1 / 60
+    llc_frame_skip = 1
+    sim_frame_skip = 4
+
+    def __init__(self, render=False):
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        stepper_path = os.path.join(current_dir, "models", "stepper.pt")
+        self.stepper = torch.load(stepper_path).actor
+
+        super().__init__(render)
+
+        # Override
+        self.lookahead = 4
+        self.n_steps = 12
+        self.pitch_limit = 30
+        self.yaw_limit = 30
+        self.tilt_limit = 15
+
+        # global states + (num of targets) * (x, y, z, x_tilt, y_tilt)
+        high = np.inf * np.ones(6 + self.lookahead * 5)
+        self.observation_space = gym.spaces.Box(-high, high, dtype=np.float32)
+
+        # Usually (always?) the steps are not more than one meter away
+        high = 1.0 * np.ones(2 * 5)
+        self.action_space = gym.spaces.Box(-high, high, dtype=np.float32)
+
+    def reset(self):
+        self.done = False
+        self.target_reached_count = 0
+        self.stop_frames = 30
+
+        self._p.restoreState(self.state_id)
+
+        self.robot_state = self.robot.reset(random_pose=True)
+        self.calc_feet_state()
+
+        # Randomize platforms
+        self.randomize_terrain()
+        self.next_step_index = 0
+
+        # Reset camera
+        if self.is_render:
+            self.camera.lookat(self.robot.body_xyz)
+
+        self.targets = self.delta_to_k_targets(k=self.lookahead)
+        self.calc_potential()
+
+        # State should contain global and terrains
+        state = np.concatenate((self.robot_state[0:6], self.targets.flatten()))
+
+        return state
+
+    def step(self, stepper_targets):
+        # stepper_state = np.concatenate(
+        #     (self.robot_state, self.targets.flatten()[0:10])
+        # ).astype(np.float32)
+
+        # Learn the delta instead to make learning easier
+        targets = stepper_targets + self.targets.flatten()[0:10]
+        stepper_state = np.concatenate((self.robot_state, targets))
+
+        with torch.no_grad():
+            normalized_torques = self.stepper(
+                torch.from_numpy(stepper_state).float()
+            ).numpy()
+
+        self.robot.apply_action(normalized_torques)
+        self.scene.global_step()
+
+        self.robot_state = self.robot.calc_state()
+        self.calc_env_state()
+
+        reward = self.step_reward
+
+        if self.is_render:
+            self._handle_keyboard()
+            self.camera.track(pos=self.robot.body_xyz)
+            self.target.set_position(pos=self.walk_target)
+            if self.distance_to_target < 0.15:
+                self.target.set_color(Colors["dodgerblue"])
+            else:
+                self.target.set_color(Colors["crimson"])
+
+        # State should contain global and terrains
+        state = np.concatenate((self.robot_state[0:6], self.targets.flatten()))
+
+        return state, reward, self.done, {}
+
+    def calc_env_state(self):
+        if not np.isfinite(self.robot_state).all():
+            print("~INF~", self.robot_state)
+            self.done = True
+
+        cur_step_index = self.next_step_index
+
+        # detects contact and set next step
+        self.calc_feet_state()
+        height = self.robot.body_xyz[2] - np.min(self.robot.feet_xyz[:, 2])
+        self.done = self.done or height < 0.7
+
+        # use next step to calculate next k steps
+        self.targets = self.delta_to_k_targets(k=self.lookahead)
+
+        self.step_reward = 0
+        if cur_step_index != self.next_step_index:
+            self.step_reward = 1
+
+        self.calc_potential()
