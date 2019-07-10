@@ -36,7 +36,7 @@ def main():
     log_interval = 1
     save_dir = os.path.join(current_dir, "models")
     log_dir = "./logs/"
-    load_saved_controller = False
+    load_saved_controller = True
     mirror_trajectory = True
 
     # Sampling parameters
@@ -57,7 +57,8 @@ def main():
     gamma = 0.99
     gae_lambda = 0.95
     clip_param = 0.2
-    lr = 0.0003
+    lr = 0.0001
+    final_lr = 3e-5
     eps = 1e-5
     max_grad_norm = 2.0
 
@@ -142,9 +143,9 @@ def main():
     for j in range(num_updates):
 
         if lr_decay_type == "linear":
-            scheduled_lr = linear_decay(j, num_updates, lr, final_value=0)
+            scheduled_lr = linear_decay(j, num_updates, lr, final_value=final_lr)
         elif lr_decay_type == "exponential":
-            scheduled_lr = exponential_decay(j, 0.99, lr, final_value=3e-5)
+            scheduled_lr = exponential_decay(j, 0.99, lr, final_value=final_lr)
         else:
             scheduled_lr = lr
 
