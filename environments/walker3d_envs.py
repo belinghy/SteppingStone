@@ -651,6 +651,8 @@ class Walker3DPlannerEnv(Walker3DStepperEnv):
 
         super().__init__(render)
 
+        self.stepper_lookahead = self.lookahead
+
         # Override
         self.lookahead = 4
         self.n_steps = 12
@@ -663,7 +665,7 @@ class Walker3DPlannerEnv(Walker3DStepperEnv):
         self.observation_space = gym.spaces.Box(-high, high, dtype=np.float32)
 
         # Usually (always?) the steps are not more than one meter away
-        high = 1.0 * np.ones(2 * 5)
+        high = 1.0 * np.ones(self.stepper_lookahead * 5)
         self.action_space = gym.spaces.Box(-high, high, dtype=np.float32)
 
     def reset(self):
@@ -748,3 +750,20 @@ class Walker3DPlannerEnv(Walker3DStepperEnv):
             self.step_reward = 1
 
         self.calc_potential()
+
+    def get_mirror_indices(self):
+
+        action_dim = self.robot.action_space.shape[0]
+
+        # 2: vy
+        # 4: roll
+        # 11: sin()
+        # 14: x_tilt
+        negation_obs_indices = np.array(
+            [2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 29], dtype=np.int64
+        )
+
+        negation_action_indices = np.array([0, 3, 5, 8, 10, 13, 15, 18], dtype=np.int64)
+        none = np.array([], dtype=np.int64)
+
+        return (negation_obs_indices, none, none, negation_action_indices, none, none)
