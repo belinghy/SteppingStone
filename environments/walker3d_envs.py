@@ -760,7 +760,7 @@ class Walker3DPlannerEnv(Walker3DStepperEnv):
         # 11: sin()
         # 14: x_tilt
         negation_obs_indices = np.array(
-            [2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 29], dtype=np.int64
+            [2, 4, 6, 9, 11, 14, 16, 19, 21, 24], dtype=np.int64
         )
 
         negation_action_indices = np.array([0, 3, 5, 8, 10, 13, 15, 18], dtype=np.int64)
