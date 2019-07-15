@@ -1,0 +1,9 @@
+gym
+matplotlib
+pybullet
+torch
+
+# sacred:
+sacred
+pymongo    # not used but won't work without it
+GitPython  # works without it but won't save the current commit
