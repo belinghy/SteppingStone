@@ -22,14 +22,14 @@ LOG_PATH=$EXPERIMENT_PATH/runs/${TODAY}__${NAME}
 mkdir -p $LOG_PATH
 cat > $LOG_PATH/run_script.sh <<EOF
 #!/bin/bash
-#SBATCH --time=10:00:00
+#SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=40
 #SBATCH --mem=32000M
-#SBATCH --job-name=$name
-#SBATCH --array=1-$num_replicates
+#SBATCH --job-name=$NAME
+#SBATCH --array=1-$NUM_REPLICATES
 . $PROJECT_PATH/../venv/bin/activate
 cd $PROJECT_PATH
 python -m playground.train with experiment_dir="$LOG_PATH/\$SLURM_ARRAY_TASK_ID" replicate_num=\$SLURM_ARRAY_TASK_ID $@

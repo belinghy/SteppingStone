@@ -233,7 +233,7 @@ class Walker3DStepperEnv(EnvBase):
         # because they are used in self.create_terrain()
         self.step_radius = 0.25
         self.rendered_step_count = 4
-        self.stop_frames = 60
+        self.stop_frames = 45
 
         super().__init__(Walker3D, render)
         self.robot.set_base_pose(pose="running_start")
@@ -247,7 +247,7 @@ class Walker3DStepperEnv(EnvBase):
         self.next_step_index = 0
 
         # Terrain info
-        self.pitch_limit = 50
+        self.pitch_limit = 20
         self.yaw_limit = 0
         self.tilt_limit = 0
         # x, y, z, phi, x_tilt, y_tilt
@@ -313,8 +313,8 @@ class Walker3DStepperEnv(EnvBase):
 
         for index in range(self.rendered_step_count):
             # p = Pillar(self._p, self.step_radius)
-            p = Plank(self._p, self.step_radius)
-            # p = LargePlank(self._p, self.step_radius)
+            # p = Plank(self._p, self.step_radius)
+            p = LargePlank(self._p, self.step_radius)
             self.steps.append(p)
             step_ids = step_ids | {(p.id, p.base_id)}
             cover_ids = cover_ids | {(p.id, p.cover_id)}
@@ -388,19 +388,6 @@ class Walker3DStepperEnv(EnvBase):
         reward = self.progress - self.energy_penalty
         reward += self.step_bonus + self.target_bonus - self.speed_penalty
         reward += self.tall_bonus - self.posture_penalty - self.joints_penalty
-
-        # print(
-        #     "{:5.2f} {:5.2f} {:5.2f} {:5.2f} {:5.2f} {:5.2f} {:5.2f} {:5.2f}".format(
-        #         self.progress,
-        #         -self.energy_penalty,
-        #         self.step_bonus,
-        #         self.target_bonus,
-        #         -self.speed_penalty,
-        #         self.tall_bonus,
-        #         -self.posture_penalty,
-        #         -self.joints_penalty,
-        #     )
-        # )
 
         state = np.concatenate((self.robot_state, self.targets.flatten()))
 
@@ -514,17 +501,6 @@ class Walker3DStepperEnv(EnvBase):
         self.step_bonus = 0
         if self.target_reached and self.target_reached_count == 1:
             self.step_bonus = 50 * np.exp(-self.foot_dist_to_target.min() / 0.25)
-
-        # print(
-        #     "{:2d} {:2d} {:2d} {:2d} {:5.2f} {:5.2f}".format(
-        #         self.next_step_index,
-        #         len(self.terrain_info),
-        #         self.target_reached_count,
-        #         self.stop_frames,
-        #         self.step_bonus,
-        #         self.distance_to_target,
-        #     )
-        # )
 
         # For last step only
         self.target_bonus = 0
