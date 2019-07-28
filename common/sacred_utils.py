@@ -1,7 +1,6 @@
 import os
 import json
 import random
-import argparse
 import torch
 import numpy as np
 from sacred import Experiment
@@ -25,37 +24,14 @@ def experiment_config():
     replicate_num = 1
 
 
-def load_configs():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment_dir", type=str)
-    parser.add_argument(
-        "--net", type=str, default=None, help="Path to trained network file"
-    )
-    parser.add_argument(
-        "--plot",
-        action="store_true",
-        default=False,
-        help="If true, plot stats in real-time",
-    )
-    parser.add_argument(
-        "--dump",
-        action="store_true",
-        default=False,
-        help="If true, dump camera rgb array",
-    )
-    args = parser.parse_args()
-
-    with open(os.path.join(args.experiment_dir, "configs.json"), "r") as cfile:
-        config = json.load(cfile)
-        return SimpleNamespace(net=args.net, plot=args.plot, dump=args.dump, **config)
-
-
 def init(seed, config, _run):
     # This gives dot access to all paths, hyperparameters, etc
     args = SimpleNamespace(**config)
 
     if not hasattr(args, "seed"):
-        args.seed = seed + args.replicate_num
+        args.seed = seed
+
+    args.seed += (args.replicate_num - 1) * args.num_processes
 
     # Seed everything
     seed_all(args.seed)
@@ -92,5 +68,4 @@ def seed_all(seed):
     np.random.seed(seed)
     random.seed(seed)
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed_all(seed)

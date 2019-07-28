@@ -3,7 +3,6 @@ import multiprocessing
 import os
 import time
 from collections import deque
-from glob import glob
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -21,23 +20,14 @@ from common.envs_utils import (
     cleanup_log_dir,
     get_mirror_function,
 )
-from common.misc_utils import (
-    linear_decay,
-    exponential_decay,
-    set_optimizer_lr,
-    StringEnum,
-)
+from common.misc_utils import linear_decay, exponential_decay, set_optimizer_lr
 from common.csv_utils import ConsoleCSVLogger
 from common.sacred_utils import ex, init
 
 
 @ex.config
 def configs():
-    env_name = "Symmetric_Walker2DBulletEnv-v0"
-
-    # mirroring method
-    mirror_method = "none"
-    assert mirror_method in MirrorMethods
+    env_name = "environments:Walker3DStepperEnv-v0"
 
     # Auxiliary configurations
     num_frames = 6e7
@@ -46,6 +36,7 @@ def configs():
     save_every = 1e7
     log_interval = 1
     load_saved_controller = False
+    use_mirror = True
 
     # Sampling parameters
     episode_steps = 50000
@@ -62,13 +53,10 @@ def configs():
     gae_lambda = 0.95
     lr = 0.0003
 
-    aux_loss_coef = 4
-
     ppo_params = {
         "use_clipped_value_loss": False,
         "num_mini_batch": num_mini_batch,
         "entropy_coef": 0.0,
-        "symmetry_coef": aux_loss_coef if mirror_method == MirrorMethods.loss else 0,
         "value_loss_coef": 1.0,
         "ppo_epoch": 10,
         "clip_param": 0.2,
@@ -107,19 +95,10 @@ def main(_seed, _config, _run):
         actor_critic = torch.load(model_path)
     else:
         controller = SoftsignActor(dummy_env)
-        if args.mirror_method == MirrorMethods.net:
-            controller = SymmetricNet(controller, *dummy_env.unwrapped.sym_act_inds)
         actor_critic = Policy(controller)
-        if args.mirror_method == MirrorMethods.net:
-            actor_critic.critic = SymmetricVNet(
-                actor_critic.critic, controller.state_dim
-            )
 
     mirror_function = None
-    if (
-        args.mirror_method == MirrorMethods.traj
-        or args.mirror_method == MirrorMethods.loss
-    ):
+    if args.use_mirror:
         indices = dummy_env.unwrapped.get_mirror_indices()
         mirror_function = get_mirror_function(indices)
 

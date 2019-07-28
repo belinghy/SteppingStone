@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+git pull --recurse-submodules
+
 project_path=$(pwd)
 today=`date '+%Y_%m_%d__%H_%M_%S'`
 

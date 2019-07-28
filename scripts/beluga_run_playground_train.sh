@@ -1,12 +1,16 @@
 #!/bin/bash
 set -e
 
-num_replicates=1
-experiment_path="$HOME/projects/def-vandepan/symmetric"
-project_path="$HOME/projects/def-vandepan/$USER/SymmetricRL"
-today=`date '+%Y_%m_%d__%H_%M_%S'`
+git pull --recurse-submodules
 
-name=$1
+NUM_REPLICATES=1
+
+# One folder above the folder containing this file
+PROJECT_PATH=$(dirname $(dirname $(realpath -s $0)))
+EXPERIMENT_PATH=$PROJECT_PATH
+TODAY=`date '+%Y_%m_%d__%H_%M_%S'`
+
+NAME=$1
 if [ $# -eq 0 ]
 then
     echo "No arguments supplied: experiment name required"
@@ -14,9 +18,9 @@ then
 fi
 shift;
 
-log_path=$experiment_path/runs/${today}__${name}
-mkdir -p $log_path
-cat > $log_path/run_script.sh <<EOF
+LOG_PATH=$EXPERIMENT_PATH/runs/${TODAY}__${NAME}
+mkdir -p $LOG_PATH
+cat > $LOG_PATH/run_script.sh <<EOF
 #!/bin/bash
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
@@ -26,16 +30,16 @@ cat > $log_path/run_script.sh <<EOF
 #SBATCH --mem=32000M
 #SBATCH --job-name=$name
 #SBATCH --array=1-$num_replicates
-. $project_path/../venv/bin/activate
-cd $project_path
-python -m playground.train with experiment_dir="$log_path/\$SLURM_ARRAY_TASK_ID" replicate_num=\$SLURM_ARRAY_TASK_ID $@
+. $PROJECT_PATH/../venv/bin/activate
+cd $PROJECT_PATH
+python -m playground.train with experiment_dir="$LOG_PATH/\$SLURM_ARRAY_TASK_ID" replicate_num=\$SLURM_ARRAY_TASK_ID $@
 EOF
 
-cd $log_path
+cd $LOG_PATH
 
-for ((i=1;i<=$num_replicates;i++)) do
+for ((i=1;i<=$NUM_REPLICATES;i++)) do
     mkdir $i
 done
 
 sbatch run_script.sh
-echo "Logging at: $log_path"
+echo "Logging at: $LOG_PATH"
