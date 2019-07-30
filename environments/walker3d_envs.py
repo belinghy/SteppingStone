@@ -263,8 +263,8 @@ class Walker3DStepperEnv(EnvBase):
     def generate_step_placements(
         self,
         n_steps=50,
-        min_gap=0.65,
-        max_gap=0.85,
+        min_gap=0.6,
+        max_gap=0.8,
         yaw_limit=30,
         pitch_limit=25,
         tilt_limit=10,
@@ -288,9 +288,10 @@ class Walker3DStepperEnv(EnvBase):
         y_tilt = self.np_random.uniform(*t_range, size=n_steps)
 
         dphi = np.cumsum(dphi)
+        dphi_offset = np.tile([-25, 25], n_steps // 2) * DEG2RAD
 
-        x_ = dr * np.sin(dtheta) * np.cos(dphi)
-        y_ = dr * np.sin(dtheta) * np.sin(dphi)
+        x_ = dr * np.sin(dtheta) * np.cos(dphi + dphi_offset)
+        y_ = dr * np.sin(dtheta) * np.sin(dphi + dphi_offset)
         z_ = dr * np.cos(dtheta)
 
         # Prevent steps from overlapping
