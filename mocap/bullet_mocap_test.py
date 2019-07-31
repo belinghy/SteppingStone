@@ -60,9 +60,7 @@ class MocapRobot:
             (0.0, 0.0, 0.5450980392156862, 1.0),
         ]
 
-        self.ordered_joints = [
-            VSphere(bc, radius=0.1, rgba=colours[i]) for i in range(num_joints)
-        ]
+        self.ordered_joints = [VSphere(bc, radius=0.065) for i in range(num_joints)]
         self.root_pos = np.zeros(3)
         self.root_facing = 0
 
@@ -77,7 +75,8 @@ class MocapRobot:
 def main():
     mocap_file = os.path.join(current_dir, "mocap_all.npy")
     # Walk including 180 degrees turn
-    mocap_data = np.load(mocap_file)[19626:20117]
+    # mocap_data = np.load(mocap_file)[19626:20117]
+    mocap_data = np.load(mocap_file)
 
     p = BulletClient(connection_mode=pybullet.GUI)
     p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
@@ -93,7 +92,7 @@ def main():
         index = (index + 1) % mocap_data.shape[0]
         frame = mocap_data[index]
 
-        yaw = robot.root_facing
+        yaw = -robot.root_facing
         matrix2d = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
         root_delta = np.matmul(matrix2d, frame[0:2])
 
@@ -101,10 +100,10 @@ def main():
             [[np.cos(yaw), -np.sin(yaw), 0], [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]]
         )
 
-        pose = extract_joints_xyz(frame) / 2
-        pose = np.matmul(matrix3d.T, pose.T).T
+        pose = extract_joints_xyz(frame)
+        pose = np.matmul(matrix3d, pose.T).T
 
-        robot.apply_action(root_delta * 0, frame[2], pose)
+        robot.apply_action(root_delta * 0.3048, frame[2], pose * 0.3048)
 
         camera.track(pos=robot.root_pos)
 
