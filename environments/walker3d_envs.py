@@ -156,7 +156,7 @@ class Walker3DCustomEnv(EnvBase):
 
         # Calculate done
         height = self.robot.body_xyz[2] - np.min(self.robot.feet_xyz[:, 2])
-        self.tall_bonus = 2.0 if height > 0.7 else -1.0
+        self.tall_bonus = 2.0 if height > 0.8 else -1.0
         self.done = self.done or self.tall_bonus < 0
 
     def calc_target_reward(self):
@@ -233,7 +233,7 @@ class Walker3DStepperEnv(EnvBase):
         # because they are used in self.create_terrain()
         self.step_radius = 0.25
         self.rendered_step_count = 4
-        self.stop_frames = 45
+        self.stop_frames = 30
 
         super().__init__(Walker3D, render)
         self.robot.set_base_pose(pose="running_start")
@@ -263,8 +263,8 @@ class Walker3DStepperEnv(EnvBase):
     def generate_step_placements(
         self,
         n_steps=50,
-        min_gap=0.6,
-        max_gap=0.8,
+        min_gap=0.65,
+        max_gap=0.85,
         yaw_limit=30,
         pitch_limit=25,
         tilt_limit=10,
@@ -295,7 +295,7 @@ class Walker3DStepperEnv(EnvBase):
         z_ = dr * np.cos(dtheta)
 
         # Prevent steps from overlapping
-        np.clip(x_, a_min=self.step_radius * 3, a_max=max_gap, out=x_)
+        np.clip(x_, a_min=self.step_radius * 2.5, a_max=max_gap, out=x_)
 
         x = np.cumsum(x_)
         y = np.cumsum(y_)
@@ -455,7 +455,7 @@ class Walker3DStepperEnv(EnvBase):
         )
 
         height = self.robot.body_xyz[2] - np.min(self.robot.feet_xyz[:, 2])
-        self.tall_bonus = 2.0 if height > 0.7 else -1.0
+        self.tall_bonus = 2.0 if height > 0.8 else -1.0
         self.done = self.done or self.tall_bonus < 0
 
     def calc_feet_state(self):
