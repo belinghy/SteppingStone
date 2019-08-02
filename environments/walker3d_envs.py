@@ -239,7 +239,7 @@ class Walker3DStepperEnv(EnvBase):
         self.robot.set_base_pose(pose="running_start")
 
         self.electricity_cost = 4.5
-        self.stall_torque_cost = 0.225
+        self.stall_torque_cost = 0.325
         self.joints_at_limit_cost = 0.1
 
         self.n_steps = 24
