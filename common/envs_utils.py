@@ -474,6 +474,7 @@ def obs_to_dict(obs):
 
 
 _NP_TO_CT = {
+    np.float64: ctypes.c_double,
     np.float32: ctypes.c_float,
     np.int32: ctypes.c_int32,
     np.int8: ctypes.c_int8,
