@@ -20,7 +20,7 @@ FixedNormal.mode = lambda self: self.mean
 class DiagGaussian(nn.Module):
     def __init__(self, num_outputs):
         super(DiagGaussian, self).__init__()
-        self.logstd = AddBias(torch.zeros(num_outputs))
+        self.logstd = AddBias(torch.zeros(num_outputs).fill_(-1.5))
 
     def forward(self, action_mean):
         #  An ugly hack for my KFAC implementation.
