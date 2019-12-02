@@ -40,9 +40,13 @@ def configs():
     load_saved_controller = False
     use_mirror = False
 
+    use_phase_mirror = False
+
     use_curriculum = False
     use_adaptive_sampling = False
     use_specialist = False
+    use_threshold_sampling = False
+    plot_prob = False
 
     # Sampling parameters
     episode_steps = 40000
@@ -51,6 +55,7 @@ def configs():
     mini_batch_size = 1024
     num_mini_batch = episode_steps // mini_batch_size
     num_tests = 4
+    num_ensembles = 1
 
     # Algorithm hyper-parameters
     use_gae = True
@@ -92,7 +97,9 @@ def main(_seed, _config, _run):
     torch.set_num_threads(1)
 
     envs = make_vec_envs(env_name, args.seed, args.num_processes, args.log_dir)
+    envs.set_mirror(args.use_phase_mirror)
     test_envs = make_vec_envs(env_name, args.seed, args.num_tests, args.log_dir + "_test")
+    test_envs.set_mirror(args.use_phase_mirror)
 
     if args.use_curriculum:
         curriculum = 0
@@ -102,18 +109,26 @@ def main(_seed, _config, _run):
         specialist = 0
         print("specialist", specialist)
         envs.update_specialist(specialist)
+    if args.use_threshold_sampling:
+        sampling_threshold = 150
+    if args.plot_prob:
+        import matplotlib.pyplot as plt
+        fig = plt.figure()
+        plt.show(block=False)
+        ax1 = fig.add_subplot(121)
+        ax2 = fig.add_subplot(122)
 
     obs_shape = envs.observation_space.shape
     obs_shape = (obs_shape[0], *obs_shape[1:])
 
     if args.load_saved_controller:
-        best_model = "{}_best.pt".format(env_name)
+        best_model = "{}_latest.pt".format(env_name)
         model_path = os.path.join(current_dir, "models", best_model)
         print("Loading model {}".format(best_model))
         actor_critic = torch.load(model_path)
     else:
         controller = SoftsignActor(dummy_env)
-        actor_critic = Policy(controller)
+        actor_critic = Policy(controller, num_ensembles=args.num_ensembles)
 
     mirror_function = None
     if args.use_mirror:
@@ -151,6 +166,7 @@ def main(_seed, _config, _run):
         rollouts.cuda()
 
     episode_rewards = deque(maxlen=args.num_processes)
+    test_episode_rewards = deque(maxlen=args.num_tests)
     num_updates = int(args.num_frames) // args.num_steps // args.num_processes
 
     start = time.time()
@@ -187,6 +203,19 @@ def main(_seed, _config, _run):
             obs, reward, done, infos = envs.step(cpu_actions)
             reward = torch.from_numpy(np.expand_dims(np.stack(reward), 1)).float()
 
+            if args.plot_prob and step == 0:
+                temp_states = envs.create_temp_states()
+                with torch.no_grad():
+                    temp_states = torch.from_numpy(temp_states).float().to(device)
+                    value_samples = actor_critic.get_value(temp_states, None, None)
+                size = dummy_env.yaw_samples.shape[0]
+                v = value_samples.mean(dim=0).view(size, size).cpu().numpy()
+                vs = value_samples.var(dim=0).view(size, size).cpu().numpy()
+                ax1.pcolormesh(v)
+                ax2.pcolormesh(vs)
+                print(np.round(v, 2))
+                fig.canvas.draw()
+
             if args.use_adaptive_sampling:
                 temp_states = envs.create_temp_states()
                 with torch.no_grad():
@@ -196,6 +225,21 @@ def main(_seed, _config, _run):
                 size = dummy_env.yaw_samples.shape[0]
                 sample_probs = (-value_samples / 5).softmax(dim=1).view(args.num_processes, size, size)
                 envs.update_sample_prob(sample_probs.cpu().numpy())
+            if args.use_threshold_sampling:
+                temp_states = envs.create_temp_states()
+                with torch.no_grad():
+                    temp_states = torch.from_numpy(temp_states).float().to(device)
+                    value_samples = actor_critic.get_value(temp_states, None, None)
+                size = dummy_env.yaw_samples.shape[0]
+                sample_probs = (value_samples - sampling_threshold).abs().mul(-1 / 50).softmax(dim=1).view(args.num_processes, size, size)
+                # sample_probs = (-((torch.sqrt((value_samples -sampling_threshold)**2)/5).softmax(dim=1).view(args.num_processes, size, size)
+                #print(np.round(sample_probs.cpu().numpy()[0, :, :], 2))
+                if args.plot_prob and step == 0:
+                    #print(sample_probs.cpu().numpy()[0, :, :])
+                    ax.pcolormesh(sample_probs.cpu().numpy()[0, :, :])
+                    print(np.round(sample_probs.cpu().numpy()[0, :, :], 4))
+                    fig.canvas.draw()
+                envs.update_sample_prob(sample_probs.cpu().numpy())
 
             bad_masks = np.ones((args.num_processes, 1))
             for p_index, info in enumerate(infos):
@@ -204,8 +248,8 @@ def main(_seed, _config, _run):
                 if "bad_transition" in keys:
                     bad_masks[p_index] = 0.0
                 # This information is added by baselines.bench.Monitor
-                # if "episode" in keys:
-                #     episode_rewards.append(info["episode"]["r"])
+                if "episode" in keys:
+                    episode_rewards.append(info["episode"]["r"])
 
             masks = torch.FloatTensor([[0.0] if done_ else [1.0] for done_ in done])
             bad_masks = torch.from_numpy(bad_masks)
@@ -230,7 +274,7 @@ def main(_seed, _config, _run):
             # Sample actions
             with torch.no_grad():
                 obs = torch.from_numpy(obs).float().to(device)
-                _, action, _, _ = actor_critic.act(obs, None, None)
+                _, action, _, _ = actor_critic.act(obs, None, None, deterministic=True)
             cpu_actions = action.squeeze(1).cpu().numpy()
 
             obs, reward, done, infos = test_envs.step(cpu_actions)
@@ -240,11 +284,13 @@ def main(_seed, _config, _run):
                 keys = info.keys()
                 # This information is added by baselines.bench.Monitor
                 if "episode" in keys:
-                    episode_rewards.append(info["episode"]["r"])
+                    #print(info["episode"]["r"])
+                    test_episode_rewards.append(info["episode"]["r"])
 
 
         if args.use_curriculum and np.median(episode_rewards) > 900:
             curriculum += 1
+            print("curriculum", curriculum)
             envs.update_curriculum(curriculum)
 
         with torch.no_grad():
@@ -300,5 +346,6 @@ def main(_seed, _config, _run):
                     "value_loss": value_loss,
                     "action_loss": action_loss,
                     "stats": {"rew": episode_rewards},
+                    "test_stats": {"rew": test_episode_rewards},
                 }
             )
