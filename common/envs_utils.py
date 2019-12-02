@@ -583,7 +583,11 @@ class ShmemVecEnv(VecEnv):
 
     def update_specialist(self, specialist):
         for pipe in self.parent_pipes:
-            pipe.send(("update_specialist", specialist))      
+            pipe.send(("update_specialist", specialist))
+
+    def set_mirror(self, mirror):
+        for pipe in self.parent_pipes:
+            pipe.send(("set_mirror", mirror))
 
     def close_extras(self):
         if self.waiting_step:
@@ -656,6 +660,8 @@ def _subproc_worker(
                 env.update_curriculum(data)
             elif cmd == "update_specialist":
                 env.update_specialist(data)
+            elif cmd == "set_mirror":
+                env.set_mirror(data)
             elif cmd == "render":
                 pipe.send(env.render(mode="rgb_array"))
             elif cmd == "close":
