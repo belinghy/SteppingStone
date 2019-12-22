@@ -18,9 +18,9 @@ FixedNormal.mode = lambda self: self.mean
 
 
 class DiagGaussian(nn.Module):
-    def __init__(self, num_outputs):
+    def __init__(self, num_outputs, noise=-1.5):
         super(DiagGaussian, self).__init__()
-        self.logstd = AddBias(torch.zeros(num_outputs).fill_(-1.5))
+        self.logstd = AddBias(torch.zeros(num_outputs).fill_(noise))
 
     def forward(self, action_mean):
         #  An ugly hack for my KFAC implementation.
@@ -98,6 +98,9 @@ class Policy(nn.Module):
 
     def forward(self, inputs, states, masks):
         raise NotImplementedError
+
+    def reset_dist(self):
+        self.dist = DiagGaussian(self.actor.action_dim, noise=-2.5)
 
     def act(self, inputs, states, masks, deterministic=False):
         action = self.actor(inputs)
