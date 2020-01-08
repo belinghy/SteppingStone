@@ -37,7 +37,7 @@ def configs():
     env_name = "CassieStepper-v1"
 
     # Auxiliary configurations
-    num_frames = 6e7
+    num_frames = 20e7
     seed = 8
     cuda = torch.cuda.is_available()
     save_every = 1e7
@@ -53,6 +53,8 @@ def configs():
     use_threshold_sampling = False
     plot_prob = False
 
+    save_sampling_prob = False
+
     # Sampling parameters
     episode_steps = 40000
     num_processes = 100  # multiprocessing.cpu_count()
@@ -62,6 +64,7 @@ def configs():
     num_tests = 4
     num_ensembles = 1
     sampling_scale = 150
+    curriculum_threshold = 0.85
 
     # Algorithm hyper-parameters
     use_gae = True
@@ -143,7 +146,7 @@ def main(_seed, _config, _run):
     obs_shape = (obs_shape[0], *obs_shape[1:])
 
     if args.load_saved_controller:
-        best_model = "{}_ensemble2_base.pt".format(env_name)
+        best_model = "{}_base.pt".format(env_name)
         model_path = os.path.join(current_dir, "models", best_model)
         print("Loading model {}".format(best_model))
         actor_critic = torch.load(model_path)
@@ -202,6 +205,9 @@ def main(_seed, _config, _run):
 
     update_values = False
 
+    if args.save_sampling_prob:
+        sampling_prob_list = []
+
     for j in range(num_updates):
 
         if args.lr_decay_type == "linear":
@@ -252,10 +258,12 @@ def main(_seed, _config, _run):
                         total_metric += metric
                 if evaluate_counter >= 5:
                     total_metric /= (total_metric.abs().max())
-                    total_metric[total_metric < 0.7] = 0
+                    #total_metric[total_metric < 0.7] = 0
                     print("metric", total_metric)
-                    sampling_probs = (-10*(total_metric-0.85).abs()).softmax(dim=1).view(yaw_size, pitch_size) #threshold1:150, 0.9 l2, threshold2: 10, 0.85 l1, threshold3: 10, 0.85, l1, 0.40 gap
+                    sampling_probs = (-10*(total_metric-args.curriculum_threshold).abs()).softmax(dim=1).view(yaw_size, pitch_size) #threshold1:150, 0.9 l2, threshold2: 10, 0.85 l1, threshold3: 10, 0.85, l1, 0.40 gap
                     #threshold 4: 20, 0.85, l1, yaw 10
+                    if args.save_sampling_prob:
+                        sampling_prob_list.append(sampling_probs.cpu().numpy())
                     sample_probs = np.zeros((args.num_processes, yaw_size, pitch_size))
                     #print("prob", sampling_probs)
                     for i in range(args.num_processes):
@@ -264,54 +272,56 @@ def main(_seed, _config, _run):
                     break
         elif args.use_threshold_sampling and uniform_sampling:
             envs.update_curriculum(5)
-        if args.use_threshold_sampling and not uniform_sampling:
-            obs = evaluate_envs.reset()
-            yaw_size = dummy_env.yaw_samples.shape[0]
-            pitch_size = dummy_env.pitch_samples.shape[0]
-            r_size = dummy_env.r_samples.shape[0]
-            total_metric = torch.zeros(1, yaw_size * pitch_size * r_size).to(device)
-            evaluate_counter = 0
-            while True:
-                obs = torch.from_numpy(obs).float().unsqueeze(0).to(device)
-                with torch.no_grad():
-                    _, action, _, _ = actor_critic.act(
-                    obs, None, None, deterministic=True
-                    )
-                cpu_actions = action.squeeze().cpu().numpy()
-                obs, reward, done, info = evaluate_envs.step(cpu_actions)
-                if done:
-                    obs = evaluate_envs.reset()
-                if evaluate_envs.update_terrain:
-                    evaluate_counter += 1
-                    temp_states = evaluate_envs.create_temp_states()
-                    with torch.no_grad():
-                        temp_states = torch.from_numpy(temp_states).float().to(device)
-                        value_samples = actor_critic.get_ensemble_values(temp_states, None, None)
-                        mean = value_samples.mean(dim=-1)
-                        #mean = value_samples.min(dim=-1)[0]
-                        metric = mean.clone()
-                        metric = metric.view(yaw_size, pitch_size, r_size)
-                        #metric = metric / (metric.abs().max())
-                        metric = metric.view(1, yaw_size*pitch_size*r_size)
-                        total_metric += metric
-                if evaluate_counter >= 5:
-                    total_metric /= (total_metric.abs().max())
-                    total_metric[total_metric < 0.7] = 0
-                    print("metric", total_metric)
-                    sampling_probs = (-10*(total_metric-0.85).abs()).softmax(dim=1).view(yaw_size, pitch_size, r_size) #threshold1:150, 0.9 l2, threshold2: 10, 0.85 l1, threshold3: 10, 0.85, l1, 0.40 gap
-                    #threshold 4: 3d grid, 10, 0.85, l1
-                    sample_probs = np.zeros((args.num_processes, yaw_size, pitch_size, r_size))
-                    #print("prob", sampling_probs)
-                    for i in range(args.num_processes):
-                        sample_probs[i, :, :, :] = np.copy(sampling_probs.cpu().numpy().astype(np.float64))
-                    envs.update_sample_prob(sample_probs)
-                    break
-        elif args.use_threshold_sampling and uniform_sampling:
-            envs.update_curriculum(5)
+        # if args.use_threshold_sampling and not uniform_sampling:
+        #     obs = evaluate_envs.reset()
+        #     yaw_size = dummy_env.yaw_samples.shape[0]
+        #     pitch_size = dummy_env.pitch_samples.shape[0]
+        #     r_size = dummy_env.r_samples.shape[0]
+        #     total_metric = torch.zeros(1, yaw_size * pitch_size * r_size).to(device)
+        #     evaluate_counter = 0
+        #     while True:
+        #         obs = torch.from_numpy(obs).float().unsqueeze(0).to(device)
+        #         with torch.no_grad():
+        #             _, action, _, _ = actor_critic.act(
+        #             obs, None, None, deterministic=True
+        #             )
+        #         cpu_actions = action.squeeze().cpu().numpy()
+        #         obs, reward, done, info = evaluate_envs.step(cpu_actions)
+        #         if done:
+        #             obs = evaluate_envs.reset()
+        #         if evaluate_envs.update_terrain:
+        #             evaluate_counter += 1
+        #             temp_states = evaluate_envs.create_temp_states()
+        #             with torch.no_grad():
+        #                 temp_states = torch.from_numpy(temp_states).float().to(device)
+        #                 value_samples = actor_critic.get_ensemble_values(temp_states, None, None)
+        #                 mean = value_samples.mean(dim=-1)
+        #                 #mean = value_samples.min(dim=-1)[0]
+        #                 metric = mean.clone()
+        #                 metric = metric.view(yaw_size, pitch_size, r_size)
+        #                 #metric = metric / (metric.abs().max())
+        #                 metric = metric.view(1, yaw_size*pitch_size*r_size)
+        #                 total_metric += metric
+        #         if evaluate_counter >= 5:
+        #             total_metric /= (total_metric.abs().max())
+        #             #total_metric[total_metric < 0.7] = 0
+        #             #print("metric", total_metric)
+        #             sampling_probs = (-10*(total_metric-0.85).abs()).softmax(dim=1).view(yaw_size, pitch_size, r_size) #threshold1:150, 0.9 l2, threshold2: 10, 0.85 l1, threshold3: 10, 0.85, l1, 0.40 gap
+        #             #threshold 4: 3d grid, 10, 0.85, l1
+        #             sample_probs = np.zeros((args.num_processes, yaw_size, pitch_size, r_size))
+        #             #print("prob", sampling_probs)
+        #             for i in range(args.num_processes):
+        #                 sample_probs[i, :, :, :] = np.copy(sampling_probs.cpu().numpy().astype(np.float64))
+        #             envs.update_sample_prob(sample_probs)
+        #             break
+        # elif args.use_threshold_sampling and uniform_sampling:
+        #     envs.update_curriculum(5)
 
         if args.use_adaptive_sampling:
             obs = evaluate_envs.reset()
-            total_metric = torch.zeros(1, 121).to(device)
+            yaw_size = dummy_env.yaw_samples.shape[0]
+            pitch_size = dummy_env.pitch_samples.shape[0]
+            total_metric = torch.zeros(1, yaw_size * pitch_size).to(device)
             evaluate_counter = 0
             while True:
                 obs = torch.from_numpy(obs).float().unsqueeze(0).to(device)
@@ -329,12 +339,11 @@ def main(_seed, _config, _run):
                     with torch.no_grad():
                         temp_states = torch.from_numpy(temp_states).float().to(device)
                         value_samples = actor_critic.get_ensemble_values(temp_states, None, None)
-                        size = dummy_env.yaw_samples.shape[0]
                         mean = value_samples.mean(dim=-1)
                         metric = mean.clone()
-                        metric = metric.view(size, size)
+                        metric = metric.view(yaw_size, pitch_size)
                         #metric = metric / metric.abs().max()
-                        metric = metric.view(1, size*size)
+                        metric = metric.view(1, yaw_size*pitch_size)
                         total_metric += metric
                         # sampling_probs = (-30*metric).softmax(dim=1).view(size, size)
                         # sample_probs = np.zeros((args.num_processes, size, size))
@@ -344,8 +353,8 @@ def main(_seed, _config, _run):
                 if evaluate_counter >= 5:
                     total_metric /= (total_metric.abs().max())
                     print("metric", total_metric)
-                    sampling_probs = (-100*total_metric).softmax(dim=1).view(size, size)
-                    sample_probs = np.zeros((args.num_processes, size, size))
+                    sampling_probs = (-10*total_metric).softmax(dim=1).view(yaw_size, pitch_size)
+                    sample_probs = np.zeros((args.num_processes, yaw_size, pitch_size))
                     for i in range(args.num_processes):
                         sample_probs[i, :, :] = np.copy(sampling_probs.cpu().numpy().astype(np.float64))
                     envs.update_sample_prob(sample_probs)
@@ -519,6 +528,11 @@ def main(_seed, _config, _run):
             next_checkpoint += args.save_every
         else:
             model_name = "{}_latest.pt".format(env_name)
+
+        if args.save_sampling_prob:
+            import pickle
+            with open('{}_sampling_prob85.pkl'.format(env_name), 'wb') as fp:
+                pickle.dump(sampling_prob_list, fp)
 
         # A really ugly way to save a model to CPU
         save_model = actor_critic
