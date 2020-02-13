@@ -68,7 +68,7 @@ def update_terrain_info(env):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--env", type=str, default="CassieStepper-v1", help="Environment ID"
+        "--env", type=str, default="mocca_envs:Walker3DStepperEnv-v0", help="Environment ID"
     )
     parser.add_argument(
         "--net", type=str, default=None, help="Path to trained network file"
@@ -158,7 +158,7 @@ def main():
     masks = torch.zeros(1, 1)
 
     obs = env.reset()
-    env.update_curriculum(0)
+    #env.update_curriculum(0)
     env.render()
 
     ep_reward = 0
@@ -206,11 +206,11 @@ def main():
             policy_list2.append(temp_policy2)
 
 
-    import matplotlib.pyplot as plt
-    import matplotlib.image as mpimg
-    image = env.camera.dump_rgb_array()
-    imgplot = plt.imshow(image, animated=True)
-    plt.show(block=False)
+    # import matplotlib.pyplot as plt
+    # import matplotlib.image as mpimg
+    # image = env.camera.dump_rgb_array()
+    # imgplot = plt.imshow(image, animated=True)
+    # plt.show(block=False)
 
     while step < max_steps:
         step += 1
@@ -358,11 +358,11 @@ def main():
             ep_reward = 0
             obs = env.reset()
 
-        if step % 5 == 0:
-            from imageio import imwrite
-            image = env.camera.dump_rgb_array()
-            imgplot.set_data(image)
-            plt.pause(0.001)
+        # if step % 5 == 0:
+        #     from imageio import imwrite
+        #     image = env.camera.dump_rgb_array()
+        #     imgplot.set_data(image)
+        #     plt.pause(0.001)
         # plt.show(block=True)
         
         #imwrite("out_{:04d}.jpg".format(step), image)
