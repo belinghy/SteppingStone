@@ -18,9 +18,9 @@ FixedNormal.mode = lambda self: self.mean
 
 
 class DiagGaussian(nn.Module):
-    def __init__(self, num_outputs):
+    def __init__(self, num_outputs, noise=-1.5):
         super(DiagGaussian, self).__init__()
-        self.logstd = AddBias(torch.zeros(num_outputs))
+        self.logstd = AddBias(torch.zeros(num_outputs).fill_(noise))
 
     def forward(self, action_mean):
         #  An ugly hack for my KFAC implementation.
@@ -53,7 +53,7 @@ def init(module, weight_init, bias_init, gain=1):
 
 
 class Policy(nn.Module):
-    def __init__(self, controller):
+    def __init__(self, controller, num_ensembles=1):
         super(Policy, self).__init__()
         self.actor = controller
         self.dist = DiagGaussian(controller.action_dim)
@@ -67,21 +67,40 @@ class Policy(nn.Module):
 
         state_dim = controller.state_dim
         h_size = 256
-        self.critic = nn.Sequential(
-            init_(nn.Linear(state_dim, h_size)),
-            nn.ReLU(),
-            init_(nn.Linear(h_size, h_size)),
-            nn.ReLU(),
-            init_(nn.Linear(h_size, h_size)),
-            nn.ReLU(),
-            init_(nn.Linear(h_size, h_size)),
-            nn.ReLU(),
-            init_(nn.Linear(h_size, 1)),
-        )
+        self.critics = []
+        for i in range(num_ensembles):
+            critic = nn.Sequential(
+                init_(nn.Linear(state_dim, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, 1)),
+            )
+            critic = nn.Sequential(
+                init_(nn.Linear(state_dim, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, h_size)),
+                nn.ReLU(),
+                init_(nn.Linear(h_size, 1)),
+            )
+            self.critics.append(critic)
+            self.add_module("c" + str(i), critic)
+
         self.state_size = 1
 
     def forward(self, inputs, states, masks):
         raise NotImplementedError
+
+    def reset_dist(self):
+        self.dist = DiagGaussian(self.actor.action_dim, noise=-2.5)
 
     def act(self, inputs, states, masks, deterministic=False):
         action = self.actor(inputs)
@@ -95,16 +114,27 @@ class Policy(nn.Module):
         # action.clamp_(-1.0, 1.0)
         action_log_probs = dist.log_probs(action)
 
-        value = self.critic(inputs)
+        value = self.get_value(inputs, states, masks)
 
         return value, action, action_log_probs, states
 
     def get_value(self, inputs, states, masks):
-        value = self.critic(inputs)
-        return value
+        values = self.get_ensemble_values(inputs, states, masks)
+        return values.mean(dim=-1, keepdim=True)
+
+    def get_ensemble_values(self, inputs, states, masks):
+        if not hasattr(self, "critics"):
+            values = self.critic(inputs)
+        else:
+            values = []
+            for critic in self.critics:
+                values.append(critic(inputs))
+            values = torch.cat(values, dim=-1)
+        return values
+
 
     def evaluate_actions(self, inputs, states, masks, action):
-        value = self.critic(inputs)
+        value = self.get_ensemble_values(inputs, states, masks)
         mode = self.actor(inputs)
         dist = self.dist(mode)
 
@@ -191,32 +221,32 @@ class SoftsignActor(nn.Module):
         self.state_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.shape[0]
 
-        init_s_ = lambda m: init(
-            m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            nn.init.calculate_gain("sigmoid"),
-        )
-        init_r_ = lambda m: init(
-            m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            nn.init.calculate_gain("relu"),
-        )
-        init_t_ = lambda m: init(
-            m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            nn.init.calculate_gain("tanh"),
-        )
+        # init_s_ = lambda m: init(
+        #     m,
+        #     nn.init.orthogonal_,
+        #     lambda x: nn.init.constant_(x, 0),
+        #     nn.init.calculate_gain("sigmoid"),
+        # )
+        # init_r_ = lambda m: init(
+        #     m,
+        #     nn.init.orthogonal_,
+        #     lambda x: nn.init.constant_(x, 0),
+        #     nn.init.calculate_gain("relu"),
+        # )
+        # init_t_ = lambda m: init(
+        #     m,
+        #     nn.init.orthogonal_,
+        #     lambda x: nn.init.constant_(x, 0),
+        #     nn.init.calculate_gain("tanh"),
+        # )
 
         h_size = 256
-        self.fc1 = init_s_(nn.Linear(self.state_dim, h_size))
-        self.fc2 = init_s_(nn.Linear(h_size, h_size))
-        self.fc3 = init_s_(nn.Linear(h_size, h_size))
-        self.fc4 = init_r_(nn.Linear(h_size, h_size))
-        self.fc5 = init_r_(nn.Linear(h_size, h_size))
-        self.out = init_t_(nn.Linear(h_size, self.action_dim))
+        self.fc1 = nn.Linear(self.state_dim, h_size)
+        self.fc2 = nn.Linear(h_size, h_size)
+        self.fc3 = nn.Linear(h_size, h_size)
+        self.fc4 = nn.Linear(h_size, h_size)
+        self.fc5 = nn.Linear(h_size, h_size)
+        self.out = nn.Linear(h_size, self.action_dim)
 
         self.train()
 
@@ -328,6 +358,30 @@ class VNet(nn.Module):
 
     def forward(self, ob):
         h = F.relu(self.fc1(ob))
+        h = F.relu(self.fc2(h))
+        h = F.relu(self.fc3(h))
+        h = F.relu(self.fc4(h))
+        return self.output_layer(h)
+
+class QNet(nn.Module):
+    def __init__(self, observation_space, action_space):
+        super(QNet, self).__init__()
+        init_ = lambda m: init(
+            m,
+            nn.init.orthogonal_,
+            lambda x: nn.init.constant_(x, 0),
+            nn.init.calculate_gain("relu"),
+        )
+        h_size = 256
+        self.fc1 = init_(nn.Linear(observation_space.shape[0] + action_space.shape[0], h_size))
+        self.fc2 = init_(nn.Linear(h_size, h_size))
+        self.fc3 = init_(nn.Linear(h_size, h_size))
+        self.fc4 = init_(nn.Linear(h_size, h_size))
+        self.output_layer = init_(nn.Linear(h_size, 1))
+
+    def forward(self, ob, a):
+        inputs = torch.cat([ob, a], 1)
+        h = F.relu(self.fc1(inputs))
         h = F.relu(self.fc2(h))
         h = F.relu(self.fc3(h))
         h = F.relu(self.fc4(h))

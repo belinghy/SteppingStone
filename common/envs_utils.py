@@ -19,7 +19,7 @@ from gym.core import Wrapper
 import numpy as np
 import torch
 
-import environments
+#import environments
 
 
 def make_env_fns(env_id, seed, rank, log_dir):
@@ -565,6 +565,30 @@ class ShmemVecEnv(VecEnv):
         for pipe in self.parent_pipes:
             pipe.send(("set_robot_params", params_dict))
 
+    def update_sample_prob(self, probs):
+        # print(policy_state_dict)
+        for pipe, prob in zip(self.parent_pipes, probs):
+            pipe.send(("update_sample_prob", prob))
+
+    def create_temp_states(self):
+        for pipe in self.parent_pipes:
+            pipe.send(("create_temp_states", None))
+
+        stacked_temp_states = np.stack([pipe.recv() for pipe in self.parent_pipes], axis=0)
+        return stacked_temp_states
+
+    def update_curriculum(self, curriculum):
+        for pipe in self.parent_pipes:
+            pipe.send(("update_curriculum", curriculum))
+
+    def update_specialist(self, specialist):
+        for pipe in self.parent_pipes:
+            pipe.send(("update_specialist", specialist))
+
+    def set_mirror(self, mirror):
+        for pipe in self.parent_pipes:
+            pipe.send(("set_mirror", mirror))
+
     def close_extras(self):
         if self.waiting_step:
             self.step_wait()
@@ -627,6 +651,17 @@ def _subproc_worker(
                 env.set_env_params(data)
             elif cmd == "set_robot_params":
                 env.set_robot_params(data)
+            elif cmd == "update_sample_prob":
+                env.update_sample_prob(data)
+            elif cmd == "create_temp_states":
+                temp_states = env.create_temp_states()
+                pipe.send(temp_states)
+            elif cmd == "update_curriculum":
+                env.update_curriculum(data)
+            elif cmd == "update_specialist":
+                env.update_specialist(data)
+            elif cmd == "set_mirror":
+                env.set_mirror(data)
             elif cmd == "render":
                 pipe.send(env.render(mode="rgb_array"))
             elif cmd == "close":
