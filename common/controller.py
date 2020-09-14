@@ -100,7 +100,8 @@ class Policy(nn.Module):
         raise NotImplementedError
 
     def reset_dist(self):
-        self.dist = DiagGaussian(self.actor.action_dim, noise=-2.5)
+        self.dist.logstd._bias.data.fill_(-2.5)
+        # self.dist = DiagGaussian(self.actor.action_dim, noise=-2.5)
 
     def act(self, inputs, states, masks, deterministic=False):
         action = self.actor(inputs)
