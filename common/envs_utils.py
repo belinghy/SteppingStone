@@ -40,15 +40,17 @@ def make_env_fns(env_id, seed, rank, log_dir):
     return _thunk
 
 
-def make_env(env_id, render=False):
-    env = gym.make(env_id, render=render)
+def make_env(env_id, **kwargs):
+    env = gym.make(env_id, **kwargs)
     return env
 
 
-def make_vec_envs(env_id, seed, num_processes, log_dir):
+def make_vec_envs(env_id, seed, num_processes, log_dir, **kwargs):
     assert num_processes > 1
 
-    env_fns = [make_env_fns(env_id, seed, i, log_dir) for i in range(num_processes)]
+    env_fns = [
+        make_env_fns(env_id, seed, i, log_dir, **kwargs) for i in range(num_processes)
+    ]
 
     # Windows does not have fork(), so handle separately
     context = "spawn" if os.name == "nt" else "fork"

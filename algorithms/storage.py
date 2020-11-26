@@ -3,9 +3,8 @@ from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 
 class RolloutStorage(object):
-    def __init__(self, num_steps, num_processes, obs_shape, action_dim, state_size):
+    def __init__(self, num_steps, num_processes, obs_shape, action_dim):
         self.observations = torch.zeros(num_steps + 1, num_processes, *obs_shape)
-        self.states = torch.zeros(num_steps + 1, num_processes, state_size)
         self.rewards = torch.zeros(num_steps, num_processes, 1)
         self.value_preds = torch.zeros(num_steps + 1, num_processes, 1)
         self.returns = torch.zeros(num_steps + 1, num_processes, 1)
@@ -17,30 +16,20 @@ class RolloutStorage(object):
         self.num_steps = num_steps
         self.step = 0
 
-    def cuda(self):
-        self.observations = self.observations.cuda()
-        self.states = self.states.cuda()
-        self.rewards = self.rewards.cuda()
-        self.value_preds = self.value_preds.cuda()
-        self.returns = self.returns.cuda()
-        self.action_log_probs = self.action_log_probs.cuda()
-        self.actions = self.actions.cuda()
-        self.masks = self.masks.cuda()
-        self.bad_masks = self.bad_masks.cuda()
+    def to(self, device):
+        self.observations = self.observations.to(device)
+        self.rewards = self.rewards.to(device)
+        self.value_preds = self.value_preds.to(device)
+        self.returns = self.returns.to(device)
+        self.action_log_probs = self.action_log_probs.to(device)
+        self.actions = self.actions.to(device)
+        self.masks = self.masks.to(device)
+        self.bad_masks = self.bad_masks.to(device)
 
     def insert(
-        self,
-        current_obs,
-        state,
-        action,
-        action_log_prob,
-        value_pred,
-        reward,
-        mask,
-        bad_mask,
+        self, current_obs, action, action_log_prob, value_pred, reward, mask, bad_mask
     ):
         self.observations[self.step + 1].copy_(current_obs)
-        self.states[self.step + 1].copy_(state)
         self.actions[self.step].copy_(action)
         self.action_log_probs[self.step].copy_(action_log_prob)
         self.value_preds[self.step].copy_(value_pred)
@@ -52,7 +41,6 @@ class RolloutStorage(object):
 
     def after_update(self):
         self.observations[0].copy_(self.observations[-1])
-        self.states[0].copy_(self.states[-1])
         self.masks[0].copy_(self.masks[-1])
         self.bad_masks[0].copy_(self.bad_masks[-1])
 
@@ -92,7 +80,6 @@ class RolloutStorage(object):
             observations_batch = self.observations[:-1].view(
                 -1, *self.observations.size()[2:]
             )[indices]
-            states_batch = self.states[:-1].view(-1, self.states.size(-1))[indices]
             actions_batch = self.actions.view(-1, self.actions.size(-1))[indices]
             value_preds_batch = self.value_preds[:-1].view(-1, 1)[indices]
             return_batch = self.returns[:-1].view(-1, 1)[indices]
@@ -100,4 +87,12 @@ class RolloutStorage(object):
             old_action_log_probs_batch = self.action_log_probs.view(-1, 1)[indices]
             adv_targ = advantages.view(-1, 1)[indices]
 
-            yield observations_batch, states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
+            yield (
+                observations_batch,
+                actions_batch,
+                value_preds_batch,
+                return_batch,
+                masks_batch,
+                old_action_log_probs_batch,
+                adv_targ,
+            )

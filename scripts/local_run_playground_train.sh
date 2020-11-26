@@ -19,7 +19,6 @@ log_path=runs/${today}__${name}
 mkdir -p runs
 mkdir $log_path
 
-. ../venv/bin/activate
 nohup python -m playground.train with experiment_dir="$log_path/" $@ &> $log_path/slurm.out &
 
 PID=$!
