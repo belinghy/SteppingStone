@@ -98,9 +98,8 @@ def main():
     # legends = ["0.9", "0.8", "0.7", "0.6", "0.5", "0.4", "0.3", "0.2", "0.1", "0.0"]
     # data = reversed(data)
 
-
     if args.legend:
-        plot.fig.legend(legends, loc=(0.1, 0.95)) #(0.15, 0.72)
+        plot.fig.legend(legends, loc=(0.1, 0.95))  # (0.15, 0.72)
 
     for i, df in enumerate(data):
         for j, column in enumerate(args.columns):

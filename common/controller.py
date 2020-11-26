@@ -133,7 +133,6 @@ class Policy(nn.Module):
             values = torch.cat(values, dim=-1)
         return values
 
-
     def evaluate_actions(self, inputs, states, masks, action):
         value = self.get_ensemble_values(inputs, states, masks)
         mode = self.actor(inputs)
@@ -364,6 +363,7 @@ class VNet(nn.Module):
         h = F.relu(self.fc4(h))
         return self.output_layer(h)
 
+
 class QNet(nn.Module):
     def __init__(self, observation_space, action_space):
         super(QNet, self).__init__()
@@ -374,7 +374,9 @@ class QNet(nn.Module):
             nn.init.calculate_gain("relu"),
         )
         h_size = 256
-        self.fc1 = init_(nn.Linear(observation_space.shape[0] + action_space.shape[0], h_size))
+        self.fc1 = init_(
+            nn.Linear(observation_space.shape[0] + action_space.shape[0], h_size)
+        )
         self.fc2 = init_(nn.Linear(h_size, h_size))
         self.fc3 = init_(nn.Linear(h_size, h_size))
         self.fc4 = init_(nn.Linear(h_size, h_size))

@@ -19,7 +19,7 @@ from gym.core import Wrapper
 import numpy as np
 import torch
 
-#import environments
+# import environments
 
 
 def make_env_fns(env_id, seed, rank, log_dir):
@@ -574,7 +574,9 @@ class ShmemVecEnv(VecEnv):
         for pipe in self.parent_pipes:
             pipe.send(("create_temp_states", None))
 
-        stacked_temp_states = np.stack([pipe.recv() for pipe in self.parent_pipes], axis=0)
+        stacked_temp_states = np.stack(
+            [pipe.recv() for pipe in self.parent_pipes], axis=0
+        )
         return stacked_temp_states
 
     def update_curriculum(self, curriculum):
