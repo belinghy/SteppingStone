@@ -12,7 +12,8 @@ This library should run on Linux, Mac, or Windows.
 # TODO: Create and activate virtual env
 
 # Download the repo as well as the submodules
-git clone https://github.com/belinghy/SteppingStone --recurse-submodules
+# Make sure to add ssh key to github
+git clone git@github.com:belinghy/SteppingStone.git --recurse-submodules
 
 # switch to walker2d branch, master branch is not updated yet
 # 2d env in master branch is broken
