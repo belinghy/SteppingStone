@@ -42,7 +42,7 @@ To start a new training experiment named `test_experiment`:
     env='mocca_envs:Crab2DCustomEnv-v0'
 ```
 
-This command will create a new experiment directory inside the `runs` directory that contains the following files:
+The bash script will create a new experiment directory inside the `runs` directory that contains the following files:
 
 - `pid`: the process ID of the task running the training algorithm
 - `progress.csv`: a CSV file containing the data about the the training progress
@@ -53,7 +53,23 @@ This command will create a new experiment directory inside the `runs` directory 
 
 If you use [Compute Canada](http://computecanada.ca), we also have scripts like `cedar_run_playground_train.sh` to create a batch job. These scripts use the same argument sctructure but also allow you to run the same task with multiple replicates using the `num_replicates` variable.
 
-### Run Trained Policies
+#### Windows
+
+On Windows, it is possible run the bash script on a version of WSL which supports GPU.
+Unfortunately, last we tested, CUDA in WSL is still very slow.
+
+The recommended way to run on Windows is using `conda` and `pycharm`.
+Downside is the logs and models will be saved at various places in the `playground` folder. 
+
+```bash
+# Walker2D
+python playground/train.py with env='mocca_envs:Walker2DCustomEnv-v0'
+
+# Crab2D
+python playground/train.py with env='mocca_envs:Crab2DCustomEnv-v0'
+```
+
+## Run Trained Policies
 
 The `enjoy.py` script can be used to run pretrained policies and render the results. Hit `r` in the PyBullet window to reset.
 
