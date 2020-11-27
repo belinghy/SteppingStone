@@ -117,7 +117,6 @@ def main():
                         smoothing_method(df[column + "_max"]),
                         line_num=i,
                     )
-                plots[j].subplot.set_xlim(0, 20e7)
                 plots[j].subplot.set_xlabel("samples")
                 plots[j].subplot.set_ylabel("total reward")
 
