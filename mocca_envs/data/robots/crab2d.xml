@@ -1,0 +1,41 @@
+<mujoco model="crab2d">
+  <compiler angle="degree" inertiafromgeom="true"/>
+  <default>
+    <joint armature="1" damping="1" limited="true"/>
+    <geom conaffinity="1" condim="3" friction="1.2 0.1 0.1" contype="1" margin="0.001" material="geom" rgba="0.8 0.6 .4 1"/>
+  </default>
+  <option integrator="RK4" iterations="50" solver="PGS" timestep="0.003" />
+  <worldbody>
+    <!-- CHANGES: see hopper.xml -->
+    <body name="pelvis" pos="0 0 0">
+      <joint armature="0" axis="1 0 0" damping="0" limited="false" name="ignorex" pos="0 0 0" stiffness="0" type="slide"/>
+      <joint armature="0" axis="0 0 1" damping="0" limited="false" name="ignorez" pos="0 0 0" stiffness="0" type="slide"/>
+      <joint armature="0" axis="0 1 0" damping="0" limited="false" name="ignorey" pos="0 0 0" stiffness="0" type="hinge"/>
+      <geom fromto="-0.25 0 0 0.25 0 0" name="pelvis_geom" size="0.09" conaffinity="2" contype="2" type="capsule"/>
+      <body name="left_thigh" pos="-0.25 0 0">
+        <joint axis="0 1 0" name="left_thigh_joint" pos="0 0 0" range="-30 90" type="hinge"/>
+        <geom fromto="0 0 0 0 0 -0.5" name="left_thigh_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>
+        <body name="left_leg" pos="0 0 -0.5">
+          <joint axis="0 -1 0" name="left_leg_joint" pos="0 0 0" range="0 120" type="hinge"/>
+          <geom fromto="0 0 0 0 0 -0.5" name="left_leg_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>
+          <body name="left_foot" pos="0 0 -0.5">
+            <joint axis="0 -1 0" name="left_foot_joint" pos="0 0 0" range="-30 30" type="hinge"/>
+            <geom fromto="0 0 0 -0.25 0 0" name="left_foot_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>
+          </body>
+        </body>
+      </body>
+      <body name="right_thigh" pos="0.25 0 0">
+        <joint axis="0 -1 0" name="right_thigh_joint" pos="0 0 0" range="-30 90" type="hinge"/>
+        <geom fromto="0 0 0 0 0 -0.5" name="right_thigh_geom" size="0.05" type="capsule"/>
+        <body name="right_leg" pos="0 0 -0.5">
+          <joint axis="0 1 0" name="right_leg_joint" pos="0 0 0" range="0 120" type="hinge"/>
+          <geom fromto="0 0 0 0 0 -0.5" name="right_leg_geom" size="0.05" type="capsule"/>
+          <body name="right_foot" pos="0 0 -0.5">
+            <joint axis="0 1 0" name="right_foot_joint" pos="0 0 0" range="-30 30" type="hinge"/>
+            <geom fromto="0 0 0 0.25 0 0" name="right_foot_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

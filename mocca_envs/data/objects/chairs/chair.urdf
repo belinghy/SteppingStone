@@ -1,0 +1,112 @@
+<?xml version="0.0" ?>
+<robot name="chair">
+    <link name="base">
+        <contact>
+            <lateral_friction value="1.0"/>
+        </contact>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="15.0"/>
+            <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0.6"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.5 1 0.05"/>
+            </geometry>
+            <material name="white">
+                <color rgba="1 1 1 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0.6"/>
+            <geometry>
+                <box size="0.5 1 0.05"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.2 -0.4 0.29"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.1 0.1 0.58"/>
+            </geometry>
+            <material name="framemat0"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.2 -0.4 0.29"/>
+            <geometry>
+                <box size="0.1 0.1 0.58"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin rpy="0 0 0" xyz="-0.2 0.4 0.29"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.1 0.1 0.58"/>
+            </geometry>
+            <material name="framemat0"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="-0.2 0.4 0.29"/>
+            <geometry>
+                <box size="0.1 0.1 0.58"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin rpy="0 0 0" xyz="0.2 -0.4 0.29"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.1 0.1 0.58"/>
+            </geometry>
+            <material name="framemat0"/>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.2 -0.4 0.29"/>
+            <geometry>
+                <box size="0.1 0.1 0.58"/>
+            </geometry>
+        </collision>
+        <visual>
+            <origin rpy="0 0 0" xyz="0.2 0.4 0.29"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.1 0.1 0.58"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0.2 0.4 0.29"/>
+            <geometry>
+                <box size="0.1 0.1 0.58"/>
+            </geometry>
+        </collision>
+    </link>
+    <link name="back">
+        <contact>
+            <lateral_friction value="1.0"/>
+        </contact>
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0.4"/>
+            <mass value="2.0"/>
+            <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+        </inertial>
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0.4"/>
+            <geometry>
+                <mesh filename="wood.obj" scale="0.05 1 0.8"/>
+            </geometry>
+            <material name="white">
+                <color rgba="1 1 1 1"/>
+            </material>
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0.4"/>
+            <geometry>
+                <box size="0.05 1 0.8"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="back" type="revolute">
+        <origin rpy="0 0 0" xyz="-0.25 0 0.6"/>
+        <axis xyz="0 1 0"/>
+        <parent link="base"/>
+        <child link="back"/>
+        <limit effort="0" lower="-1.57" upper="0"/>
+    </joint>
+</robot>
+
