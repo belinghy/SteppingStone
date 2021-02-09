@@ -82,7 +82,7 @@ Please cite the following paper if you find our work useful.
 @inproceedings{2020-SCA-ALLSTEPS,
   title={ALLSTEPS: Curriculum-driven Learning of Stepping Stone Skills}
   author={Xie, Zhaoming and Ling, Hung Yu and Kim, Nam Hee and van de Panne, Michiel},
-  booktitle = {Proc. ACM SIGGRAPH / Eurographics Symposium on Computer Animation},
+  journal = {Proc. ACM SIGGRAPH / Eurographics Symposium on Computer Animation},
   year={2020}
 }
 ```
