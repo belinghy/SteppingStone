@@ -151,7 +151,7 @@ class PPO(object):
                 # nn.utils.clip_grad_norm_(
                 #     self.actor_critic.parameters(), self.max_grad_norm
                 # )
-                self.optimizer.step()
+                self.value_optimizer.step()
 
                 value_loss_epoch += value_loss.item()
                 #print(value_loss)
